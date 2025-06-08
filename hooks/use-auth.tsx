@@ -26,22 +26,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize auth state
     const initAuth = async () => {
       try {
-        const currentUser = authService.getCurrentUser()
         const token = authService.getToken()
-
-        if (currentUser && token) {
-          // Verify token is still valid by fetching fresh user data
+        if (token) {
+          // Sempre busca o perfil do usuário ao iniciar
           try {
             const freshUserData = await authService.fetchUserProfile()
             setUser(freshUserData)
+            // Salva o user no localStorage para manter sessão
+            localStorage.setItem("userData", JSON.stringify(freshUserData))
           } catch (error) {
-            // Token is invalid, clear auth
+            // Token inválido, faz logout
             authService.logout()
             setUser(null)
           }
+        } else {
+          setUser(null)
         }
       } catch (error) {
         console.error("Error initializing auth:", error)
+        setUser(null)
       } finally {
         setIsLoading(false)
       }
