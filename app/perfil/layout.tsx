@@ -8,9 +8,10 @@ export default function PerfilLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Fornece uma função dummy para onCartClick, pois o Header exige essa prop
   return (
     <ProtectedRoute>
-      <Header onCartClick={() => { /* TODO: implement cart click handler */ }} />
+      <Header onCartClick={() => {}} />
       <main className="min-h-screen bg-gray-50">{children}</main>
       <Footer />
     </ProtectedRoute>
