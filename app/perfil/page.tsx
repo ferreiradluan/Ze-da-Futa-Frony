@@ -27,21 +27,28 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
 export default function PerfilPage() {
-  const { user, isLoading, logout } = useAuth()
+  const { user, isLoading, logout, updateProfile } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
-    nome: user?.name || "",
+    name: user?.name || "",
     email: user?.email || "",
+    phone: user?.phone || "",
+    document: user?.document || "",
   })
-
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login")
     }
     if (user) {
-      setFormData({ nome: user.name, email: user.email })
+      setFormData({ 
+        name: user.name,
+        email: user.email,
+        phone: user.phone || "",
+        document: user.document || "",
+      })
     }
   }, [user, isLoading, router])
 
@@ -93,16 +100,33 @@ export default function PerfilPage() {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Simulação de atualização de dados
-    toast({
-      title: "Perfil atualizado",
-      description: "Seus dados foram atualizados com sucesso.",
-      variant: "default",
-    })
-    setIsEditing(false)
+    setIsSaving(true)
+    
+    try {
+      await updateProfile({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        document: formData.document,
+      })
+      
+      toast({
+        title: "Perfil atualizado",
+        description: "Suas informações foram salvas com sucesso.",
+      })
+      
+      setIsEditing(false)
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível salvar as alterações.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleLogout = () => {
@@ -214,12 +238,11 @@ export default function PerfilPage() {
                     <form onSubmit={handleSubmit}>
                       <div className="grid gap-4">
                         <div className="grid gap-2">
-                          <Label htmlFor="name">Nome completo</Label>
-                          {isEditing ? (
+                          <Label htmlFor="name">Nome completo</Label>                          {isEditing ? (
                             <Input
                               id="name"
                               name="name"
-                              value={formData.nome}
+                              value={formData.name}
                               onChange={handleChange}
                               placeholder="Seu nome completo"
                             />
@@ -241,26 +264,46 @@ export default function PerfilPage() {
                           ) : (
                             <div className="p-2 bg-muted rounded-md">{user.email}</div>
                           )}
-                        </div>
-                        <div className="grid gap-2">
+                        </div>                        <div className="grid gap-2">
                           <Label htmlFor="phone">Telefone</Label>
-                          <div className="p-2 bg-muted rounded-md">Não informado</div>
+                          {isEditing ? (
+                            <Input
+                              id="phone"
+                              name="phone"
+                              value={formData.phone}
+                              onChange={handleChange}
+                              placeholder="(11) 99999-9999"
+                            />
+                          ) : (
+                            <div className="p-2 bg-muted rounded-md">{user.phone || "Não informado"}</div>
+                          )}
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="cpf">CPF/CNPJ</Label>
-                          <div className="p-2 bg-muted rounded-md">Não informado</div>
+                          <Label htmlFor="document">CPF/CNPJ</Label>
+                          {isEditing ? (
+                            <Input
+                              id="document"
+                              name="document"
+                              value={formData.document}
+                              onChange={handleChange}
+                              placeholder="000.000.000-00"
+                            />
+                          ) : (
+                            <div className="p-2 bg-muted rounded-md">{user.document || "Não informado"}</div>
+                          )}
                         </div>
                         <div className="grid gap-2">
                           <Label>Data de cadastro</Label>
-                          <div className="p-2 bg-muted rounded-md">Não informado</div>
+                          <div className="p-2 bg-muted rounded-md">{user.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR') : "Não informado"}</div>
                         </div>
-                      </div>
-                      {isEditing && (
+                      </div>                      {isEditing && (
                         <div className="flex justify-end mt-4 space-x-2">
-                          <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                          <Button type="button" variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving}>
                             Cancelar
                           </Button>
-                          <Button type="submit">Salvar Alterações</Button>
+                          <Button type="submit" disabled={isSaving}>
+                            {isSaving ? "Salvando..." : "Salvar Alterações"}
+                          </Button>
                         </div>
                       )}
                     </form>

@@ -7,6 +7,25 @@ export interface User {
   name: string
   role: "ADMIN" | "CLIENTE" | "LOJISTA" | "ENTREGADOR"
   avatar?: string
+  phone?: string
+  document?: string
+  createdAt?: string
+  updatedAt?: string
+  orders?: any[]
+  fotoPerfil?: string
+  endereco?: {
+    rua?: string
+    numero?: string
+    complemento?: string
+    bairro?: string
+    cidade?: string
+    estado?: string
+    cep?: string
+  }
+  preferencias?: {
+    notificacoes?: boolean
+    newsletter?: boolean
+  }
 }
 
 export interface AuthResponse {
@@ -22,7 +41,7 @@ const GOOGLE_OAUTH_BASE_URL = "https://accounts.google.com/o/oauth2/v2/auth/oaut
 const GOOGLE_CLIENT_ID = "287729540374-eq0mt4hrca6lb13i8s2u11t3kqejpvhq.apps.googleusercontent.com"
 
 const buildGoogleOAuthURL = (userType?: "lojista" | "entregador") => {
-  const baseParams = {
+  const baseParams: Record<string, string> = {
     response_type: "code",
     redirect_uri: `${API_BASE_URL}/auth/google/callback`,
     scope: "email profile",
@@ -128,7 +147,7 @@ export class AuthService {
       throw new Error("No authentication token")
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+    const response = await fetch(`${API_BASE_URL}/account/profile/me`, {
       headers: {
         Authorization: `Bearer ${this.token}`,
         "Content-Type": "application/json",
@@ -139,7 +158,45 @@ export class AuthService {
       throw new Error("Failed to fetch user profile")
     }
 
-    return response.json()
+    const userData = await response.json()
+    
+    // Update local user data
+    this.user = userData
+    if (typeof window !== "undefined") {
+      localStorage.setItem("userData", JSON.stringify(userData))
+    }
+
+    return userData
+  }
+
+  // Update user profile
+  async updateUserProfile(profileData: Partial<User>): Promise<User> {
+    if (!this.token) {
+      throw new Error("No authentication token")
+    }
+
+    const response = await fetch(`${API_BASE_URL}/account/profile/me`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(profileData),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to update user profile")
+    }
+
+    const updatedUserData = await response.json()
+    
+    // Update local user data
+    this.user = updatedUserData
+    if (typeof window !== "undefined") {
+      localStorage.setItem("userData", JSON.stringify(updatedUserData))
+    }
+
+    return updatedUserData
   }
 
   // Admin login with email/password
@@ -174,9 +231,10 @@ export class AuthService {
 
   // Logout
   logout(): void {
-    // Simple logout - just remove the token
+    // Clear localStorage
     if (typeof window !== "undefined") {
       localStorage.removeItem("authToken")
+      localStorage.removeItem("userData")
     }
     this.token = null
     this.user = null
@@ -188,6 +246,15 @@ export class AuthService {
     this.user = null
     if (typeof window !== "undefined") {
       localStorage.removeItem("authToken")
+      localStorage.removeItem("userData")
+    }
+  }
+
+  // Set token (for use in OAuth callback)
+  setToken(token: string): void {
+    this.token = token
+    if (typeof window !== "undefined") {
+      localStorage.setItem("authToken", token)
     }
   }
 
@@ -213,9 +280,9 @@ export class AuthService {
 
   // Make authenticated API request
   async apiRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
-    const headers = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     }
 
     if (this.token) {

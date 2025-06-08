@@ -13,7 +13,8 @@ interface AuthContextType {
   loginAdmin: (email: string, password: string) => Promise<void>
   logout: () => void
   hasRole: (role: User["role"]) => boolean
-  refreshUser: () => Promise<void> // novo método
+  refreshUser: () => Promise<void>
+  updateProfile: (profileData: Partial<User>) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -30,9 +31,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const freshUserData = await authService.fetchUserProfile()
       setUser(freshUserData)
       localStorage.setItem("userData", JSON.stringify(freshUserData))
+      return freshUserData
     } catch (error) {
-      authService.logout()
-      setUser(null)
+      console.error("Error fetching user:", error)
+      // Only clear auth if it's a 401 or authentication error
+      if (error instanceof Error && (error.message.includes("401") || error.message.includes("authentication"))) {
+        authService.logout()
+        setUser(null)
+        localStorage.removeItem("authToken")
+        localStorage.removeItem("userData")
+      }
+      throw error
     } finally {
       setIsLoading(false)
     }
@@ -40,23 +49,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // On mount, and whenever token changes, fetch user
   useEffect(() => {
-    const token = authService.getToken()
-    if (token) {
-      fetchAndSetUser()
-    } else {
-      setUser(null)
-      setIsLoading(false)
+    const initializeAuth = async () => {
+      const token = authService.getToken()
+      if (token) {
+        try {
+          await fetchAndSetUser()
+        } catch (error) {
+          // User will be set to null in fetchAndSetUser on auth errors
+          setIsLoading(false)
+        }
+      } else {
+        // Try to get user from localStorage as fallback
+        const storedUserData = localStorage.getItem("userData")
+        if (storedUserData) {
+          try {
+            const userData = JSON.parse(storedUserData)
+            setUser(userData)
+          } catch (error) {
+            console.error("Error parsing stored user data:", error)
+            localStorage.removeItem("userData")
+          }
+        }
+        setUser(null)
+        setIsLoading(false)
+      }
     }
+
+    initializeAuth()
+
     // Listen for token changes in other tabs
     const onStorage = (e: StorageEvent) => {
       if (e.key === "authToken") {
         if (e.newValue) {
-          fetchAndSetUser()
+          fetchAndSetUser().catch(() => {
+            // Handle error silently, user state will be updated in fetchAndSetUser
+          })
         } else {
           setUser(null)
         }
       }
     }
+    
     window.addEventListener("storage", onStorage)
     return () => window.removeEventListener("storage", onStorage)
   }, [])
@@ -129,6 +162,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchAndSetUser()
   }
 
+  // Método para atualizar perfil do usuário
+  const updateProfile = async (profileData: Partial<User>) => {
+    setIsLoading(true)
+    try {
+      const updatedUser = await authService.updateUserProfile(profileData)
+      setUser(updatedUser)
+    } catch (error) {
+      console.error("Error updating profile:", error)
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -140,7 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginAdmin,
         logout,
         hasRole,
-        refreshUser, // novo método
+        refreshUser,
+        updateProfile,
       }}
     >
       {children}
