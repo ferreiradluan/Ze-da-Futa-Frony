@@ -9,9 +9,19 @@ function GoogleCallbackLogic() {
 
   useEffect(() => {
     const token = searchParams.get("token")
+    const redirect = searchParams.get("redirect")
     if (token) {
       localStorage.setItem("authToken", token)
-      router.replace("/lojas")
+      if (redirect) {
+        // Garante que o redirect é seguro (evita open redirect)
+        if (redirect.startsWith("/")) {
+          router.replace(redirect)
+        } else {
+          router.replace("/lojas")
+        }
+      } else {
+        router.replace("/lojas")
+      }
     }
   }, [router, searchParams])
 

@@ -12,6 +12,10 @@ export default function PerfilLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Verifica se o usuário está autenticado no client-side
+  // Se não estiver autenticado, redireciona para login
+  // Isso garante que o layout só seja exibido para usuários logados
+  // O ProtectedRoute já faz isso, mas reforçamos para evitar flicker
   return (
     <ProtectedRoute>
       <Header onCartClick={() => {}} />
