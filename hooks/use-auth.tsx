@@ -13,6 +13,7 @@ interface AuthContextType {
   loginAdmin: (email: string, password: string) => Promise<void>
   logout: () => void
   hasRole: (role: User["role"]) => boolean
+  refreshUser: () => Promise<void> // novo método
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -22,80 +23,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    // Initialize auth state
-    const initAuth = async () => {
-      try {
-        const token = authService.getToken()
-        if (token) {
-          // Sempre busca o perfil do usuário ao iniciar
-          try {
-            const freshUserData = await authService.fetchUserProfile()
-            setUser(freshUserData)
-            // Salva o user no localStorage para manter sessão
-            localStorage.setItem("userData", JSON.stringify(freshUserData))
-          } catch (error) {
-            // Token inválido, faz logout
-            authService.logout()
-            setUser(null)
-          }
-        } else {
-          setUser(null)
-        }
-      } catch (error) {
-        console.error("Error initializing auth:", error)
-        setUser(null)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    initAuth()
-
-    // Handle OAuth callback if present in URL
-    const urlParams = new URLSearchParams(window.location.search)
-    const code = urlParams.get("code")
-    const error = urlParams.get("error")
-
-    if (error) {
-      console.error("OAuth error:", error)
-      setIsLoading(false)
-      return
-    }
-
-    if (code) {
-      handleOAuthCallback(code)
-    }
-  }, [])
-
-  const handleOAuthCallback = async (code: string) => {
+  // Helper to fetch and set user from backend
+  const fetchAndSetUser = async () => {
+    setIsLoading(true)
     try {
-      setIsLoading(true)
-      const userData = await authService.handleOAuthCallback(code)
-      setUser(userData)
-
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
-
-      // Redirect based on user role
-      redirectAfterLogin(userData.role)
+      const freshUserData = await authService.fetchUserProfile()
+      setUser(freshUserData)
+      localStorage.setItem("userData", JSON.stringify(freshUserData))
     } catch (error) {
-      console.error("OAuth callback error:", error)
-      router.push("/login?error=auth_failed")
+      authService.logout()
+      setUser(null)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const login = async () => {
-    try {
-      setIsLoading(true)
-      await authService.loginWithGoogle()
-    } catch (error) {
-      console.error("Login error:", error)
+  // On mount, and whenever token changes, fetch user
+  useEffect(() => {
+    const token = authService.getToken()
+    if (token) {
+      fetchAndSetUser()
+    } else {
+      setUser(null)
       setIsLoading(false)
-      throw error
     }
+    // Listen for token changes in other tabs
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "authToken") {
+        if (e.newValue) {
+          fetchAndSetUser()
+        } else {
+          setUser(null)
+        }
+      }
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
+  }, [])
+
+  const login = async () => {
+    setIsLoading(true)
+    await authService.loginWithGoogle()
+    // Redirecionamento ocorre fora
   }
 
   const loginPartner = async (userType: "lojista" | "entregador") => {
@@ -155,6 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Expor método para forçar refresh do usuário
+  const refreshUser = async () => {
+    await fetchAndSetUser()
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -166,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginAdmin,
         logout,
         hasRole,
+        refreshUser, // novo método
       }}
     >
       {children}

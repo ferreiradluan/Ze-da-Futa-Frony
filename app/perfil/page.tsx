@@ -27,50 +27,25 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
 export default function PerfilPage() {
-  const { logout } = useAuth()
+  const { user, isLoading, logout } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
-    nome: "",
-    email: "",
+    nome: user?.name || "",
+    email: user?.email || "",
   })
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true)
-      try {
-        const token = localStorage.getItem("authToken")
-        if (!token) {
-          router.push("/login")
-          return
-        }
-        const res = await fetch("https://meu-ze-da-fruta-backend-8c4976f28553.herokuapp.com/account/profile/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-        if (!res.ok) {
-          logout()
-          router.push("/login")
-          return
-        }
-        const data = await res.json()
-        setUser(data)
-        setFormData({ nome: data.nome, email: data.email })
-      } catch (e) {
-        logout()
-        router.push("/login")
-      } finally {
-        setLoading(false)
-      }
+    if (!isLoading && !user) {
+      router.push("/login")
     }
-    fetchProfile()
-  }, [router, logout])
+    if (user) {
+      setFormData({ nome: user.name, email: user.email })
+    }
+  }, [user, isLoading, router])
 
-  if (loading) {
+  if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center"><p>Carregando perfil...</p></div>
   }
   if (!user) {
@@ -156,12 +131,12 @@ export default function PerfilPage() {
               </CardHeader>
               <CardContent className="flex flex-col items-center pt-4 pb-6">
                 <Avatar className="h-24 w-24 mb-4">
-                  <AvatarImage src={user.fotoPerfil || "/placeholder.svg"} alt={user.nome} />
-                  <AvatarFallback className="text-xl">{getInitials(user.nome)}</AvatarFallback>
+                  <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                  <AvatarFallback className="text-xl">{getInitials(user.name)}</AvatarFallback>
                 </Avatar>
-                <h2 className="text-xl font-semibold">{user.nome}</h2>
+                <h2 className="text-xl font-semibold">{user.name}</h2>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
-                <Badge className={`mt-2 ${getRoleColor(user.roles[0])}`}>{getRoleName(user.roles[0])}</Badge>
+                <Badge className={`mt-2 ${getRoleColor(user.role)}`}>{getRoleName(user.role)}</Badge>
               </CardContent>
               <CardFooter className="flex justify-center border-t pt-4">
                 <Button variant="outline" onClick={() => setIsEditing(true)}>
@@ -249,7 +224,7 @@ export default function PerfilPage() {
                               placeholder="Seu nome completo"
                             />
                           ) : (
-                            <div className="p-2 bg-muted rounded-md">{user.nome}</div>
+                            <div className="p-2 bg-muted rounded-md">{user.name}</div>
                           )}
                         </div>
                         <div className="grid gap-2">
