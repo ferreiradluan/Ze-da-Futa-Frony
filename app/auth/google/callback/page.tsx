@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackLogic() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -11,7 +11,6 @@ export default function GoogleCallbackPage() {
     const token = searchParams.get("token")
     if (token) {
       localStorage.setItem("authToken", token)
-      // Use router.replace para garantir o redirecionamento SPA do Next.js
       router.replace("/lojas")
     }
   }, [router, searchParams])
@@ -22,5 +21,13 @@ export default function GoogleCallbackPage() {
         <p>Processando login...</p>
       </div>
     </div>
+  )
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p>Processando login...</p></div>}>
+      <GoogleCallbackLogic />
+    </Suspense>
   )
 }
