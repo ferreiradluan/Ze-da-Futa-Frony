@@ -11,10 +11,10 @@ export default function GoogleCallbackPage() {
     const token = searchParams.get("token")
     if (token) {
       localStorage.setItem("authToken", token)
-      // Redireciona para /lojas após garantir o armazenamento
-      window.location.replace("/lojas")
+      // Use router.replace para garantir o redirecionamento SPA do Next.js
+      router.replace("/lojas")
     }
-  }, [searchParams])
+  }, [router, searchParams])
 
   return (
     <div className="min-h-screen flex items-center justify-center">
