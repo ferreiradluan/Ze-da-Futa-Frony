@@ -1,29 +1,19 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function GoogleCallbackPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    // Tenta capturar o token do JSON exibido na tela
-    try {
-      // Pega o texto da página (body)
-      const pre = document.querySelector("pre")
-      if (pre) {
-        const json = JSON.parse(pre.textContent || "{}")
-        if (json.token || json.access_token) {
-          const token = json.token || json.access_token
-          localStorage.setItem("authToken", token)
-          // Redireciona para a loja
-          router.replace("/lojas")
-        }
-      }
-    } catch (e) {
-      // Não conseguiu capturar token
+    const token = searchParams.get("token")
+    if (token) {
+      localStorage.setItem("authToken", token)
+      router.replace("/lojas")
     }
-  }, [router])
+  }, [router, searchParams])
 
   return (
     <div className="min-h-screen flex items-center justify-center">
